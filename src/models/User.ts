@@ -1,59 +1,34 @@
-import axios, { AxiosResponse } from 'axios';
+import { Model } from "./Model";
+import { Attributes } from "./Attributes";
+import { ApiSync } from "./ApiSync";
+import { Eventing } from "./Eventing";
+import { Collection } from "./Collections";
 
-interface UserProps {
+export interface UserProps {
     id?: number,
     name?: string;
     age?: number
-}
+};
 
-type Callback = () => void;
+const rootUrl = 'http://localhost:3000/users'
 
-export class User {
-    events: { [key: string]: Callback[] } = {};
-
-    constructor(private data: UserProps) { }
-
-    get(propName: string): (number | string) {
-        return this.data[propName]
+export class User extends Model<UserProps>{
+    static buildUser(attrs: UserProps): User {
+        return new User(
+            new Attributes<UserProps>(attrs),
+            new Eventing(),
+            new ApiSync<UserProps>(rootUrl),
+        )
     }
 
-    set(update: UserProps): void {
-        Object.assign(this.data, update)
+    static buildUserCollection(): Collection<User, UserProps> {
+        return new Collection<User, UserProps>(
+            rootUrl,
+            (json: UserProps) => User.buildUser(json)
+        );
     }
 
-    on(eventName: string, callback: Callback): void {
-        // this.events[eventName] // Callback[] or undefined
-        const handlers = this.events[eventName] || [];
-        handlers.push(callback);
-        this.events[eventName] = handlers;
-    }
-
-    trigger(eventName: string): void {
-        const handlers = this.events[eventName];
-
-        if (!handlers || handlers.length === 0) {
-            return;
-        }
-
-        handlers.forEach(callback => {
-            callback()
-        })
-    }
-
-    fetch(): void {
-        axios.get(`http://localhost:3000/users/${this.get('id')}`)
-            .then((response: AxiosResponse): void => {
-                this.set(response.data)
-            })
-    }
-
-    save(): void {
-        const id = this.get('id')
-
-        if (id) {
-            axios.put(`http://localhost:3000/users/${id}`, this.data);
-        } else {
-            axios.post('http://localhost:3000/users/', this.data)
-        }
+    isAdminUser(): boolean {
+        return this.get('id') === 1;
     }
 }
